@@ -10,19 +10,10 @@ import matplotlib.pyplot as plt
 from pptx import Presentation
 from pptx.util import Inches, Pt
 
-
 # define the input his image paths
 his_img_path = "D:\\datasets\\wales_gov\\penarth_head_to_cold_knap\\"
-# make a list of all the paths having the image files
-his_img_dir = [his_img_path + f for f in os.listdir(his_img_path)
-                if '.pptx' not in f]
-his_img_list = [os.listdir(f) for f in his_img_dir]
-
-[x[0] for x in os.walk(his_img_path)]
-
 # define output ppt path
 output_ppt_path = ("D:\\datasets\\wales_gov\\penarth_head_to_cold_knap.pptx")
-
 
 def make_image(in_img_path: str, out_img_path: str, scale_factor = 0.25
                , dpi =72) -> None:
@@ -51,7 +42,6 @@ def make_image(in_img_path: str, out_img_path: str, scale_factor = 0.25
     array_lowres = array[::int(1/scale_factor), ::int(1/scale_factor)]
     # save the image with low resolution
     plt.imsave(out_img_path, array_lowres, cmap='gray', dpi=dpi)
-
 
 def add_image_to_ppt(p: Presentation, in_img_path: str, out_img_path: str
                      )-> None:
@@ -92,41 +82,48 @@ def add_image_to_ppt(p: Presentation, in_img_path: str, out_img_path: str
     #  delete the low res image file
     os.remove(out_img_path)
 
+# list out all files in the his image path
+his_file_list = []
+for path, subdirs, files in os.walk(his_img_path):
+    for name in files:
+        his_file_list.append(os.path.join(path, name))
+
+# check for list empty condition
+print(f'Number of files found: {len(his_file_list)}')
+if len(his_file_list) == 0:
+    print('No files found in the specified his image path.')
+    exit()
+
+# extracting the list of unique folders in the his image path
+his_folder_list = list(set([f.replace(his_img_path, "").split("\\")[0]
+                            for f in his_file_list]))
+his_folder_list.sort()
+print(f'Number of unique folders found: {len(his_folder_list)}')
+
 
 # Create and add title slide
 p = Presentation()
-
 # loop through all the his images and add to ppt
-for i in range(len(his_img_dir)):
-    print(f'Processing images in folder: {his_img_dir[i]}')
-    his_img_list = [f for f in os.listdir(his_img_dir[i]) if '_lowres' not in
-                    f]
+for his_folder in his_folder_list:
+    print(f'Found folder: {his_folder}')
+    his_file_list_sub = [f for f in his_file_list if his_folder in f]
+    print(f'  Number of files in folder: {len(his_file_list_sub)}')
+    if len(his_file_list_sub) == 0:
+        print(f'  No files found in folder: {his_folder}')
+        continue
     # selecting title slide layout
     s = p.slides.add_slide(p.slide_layouts[0])
     # adding title
-    s.shapes.title.text = his_img_dir[i].split('\\')[-1]
+    s.shapes.title.text = his_folder
     # loop through all images in the folder
-    for j in range(len(his_img_list)):
-        print(f'  Adding image: {his_img_list[j]}')
-        in_img_path = his_img_dir[i] + '\\' + his_img_list[j]
-        if os.path.isdir(in_img_path):
-            his_img_list_sub = [f for f in os.listdir(in_img_path) if
-                                '_lowres' not in f]
-            for k in range(len(his_img_list_sub)):
-                print(f'    Adding sub-image: {his_img_list_sub[k]}')
-                in_img_path_sub = in_img_path + '\\' + his_img_list_sub[k]
-                out_img_path_sub = (in_img_path + '\\' +
-                                    his_img_list_sub[k].split('.')[0]
-                                    + '_lowres.png')
-                make_image(in_img_path_sub, out_img_path_sub,
-                           scale_factor=0.25, dpi=70)
-                add_image_to_ppt(p, in_img_path_sub, out_img_path_sub)
-        else:
-            out_img_path = (his_img_dir[i] + '\\' + his_img_list[j].
-                            split('.')[0] + '_lowres.png')
-            make_image(in_img_path, out_img_path, scale_factor=0.25, dpi=70)
-            add_image_to_ppt(p, in_img_path, out_img_path)
-
+    for his_file in his_file_list_sub:
+        print(f'  Adding image: {his_file}')
+        # make low res image
+        out_img_path = (his_file.split('.')[0] + '_lowres.png')
+        make_image(his_file, out_img_path, scale_factor=0.25, dpi=70)
+        # add image to ppt
+        add_image_to_ppt(p, his_file, out_img_path)
 
 # save the ppt
 p.save(output_ppt_path)
+print(f'PPT saved at: {output_ppt_path}')

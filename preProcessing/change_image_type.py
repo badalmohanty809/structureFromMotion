@@ -22,7 +22,7 @@ gdal.SetConfigOption("GDAL_PAM_ENABLED", "NO")
 # Register HEIF opener with Pillow
 register_heif_opener()
 
-# #  define the sub-folder name which can change
+#  define the sub-folder name which can change
 # sub_folder_name = '1951 5129'
 # # define the input his image paths
 # his_img_path = 'D:\\datasets\\wales_gov\\penarth_head_to_cold_knap\\'
@@ -30,11 +30,19 @@ register_heif_opener()
 # his_img_out_path = 'D:\\datasets\\wales_gov\\penarth_head_to_cold_knap_jpeg\\'
 
 #  define the sub-folder name which can change
-sub_folder_name = 'my_iphone_camera_1'
+# sub_folder_name = 'my_iphone_camera_1'
+# # define the input his image paths
+# his_img_path = 'D:\\datasets\\sample_for_sfm\\'
+# # define the output his image paths
+# his_img_out_path = his_img_path
+
+
+#  define the sub-folder name which can change
+sub_folder_name = '1944_4001'
 # define the input his image paths
-his_img_path = 'D:\\datasets\\sample_for_sfm\\'
+his_img_path = 'D:\\datasets\\image_preprocessing\\gcps\\penarth_head_to_cold_knap\\'
 # define the output his image paths
-his_img_out_path = his_img_path
+his_img_out_path = 'D:\\datasets\\wales_gov\\penarth_head_to_cold_knap_jpeg\\gcps\\'
 
 
 def change_from_tif(his_file: str, output_path: str) -> None:
@@ -58,6 +66,12 @@ def change_from_tif(his_file: str, output_path: str) -> None:
         ext = ".pgm"
     elif bands == 3:
         ext = ".ppm"
+    elif bands == 4:
+        print(f'{his_file} has 4 bands, dropping the alpha channel '
+              f'and changing to ppm')
+        ext = ".ppm"
+        #  drop the alpha channel from the dataset
+        dataset = gdal.Translate('', dataset, format='MEM', bandList=[1, 2, 3])
     else:
         print(f"Unsupported band count: {bands} in {his_file}")
         return
@@ -94,6 +108,7 @@ for path, subdirs, files in os.walk(his_img_path + sub_folder_name):
     for name in files:
         his_file_list.append(os.path.join(path, name))
 
+his_file_list = [i for i in his_file_list if '_gcp' in i]
 print(f'total {len(his_file_list)} files found in the folder')
 
 # exit if there is no file in the folder

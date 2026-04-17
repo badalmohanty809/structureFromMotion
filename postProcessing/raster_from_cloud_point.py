@@ -5,16 +5,16 @@
 
 
 
+import sys
 import open3d as o3d
 import numpy as np
 from plyfile import PlyData, PlyElement
 import CSF
 from scipy.spatial import cKDTree
-
 from scipy.spatial import Delaunay
 from scipy.interpolate import LinearNDInterpolator
-import rasterio
-from rasterio.transform import from_origin
+sys.path.append("C:\\Users\\c25045127\\OneDrive - Cardiff University\\data_analysis\\structureFromMotion\\utils\\")
+import common_python_functions as cpf
 
 
 
@@ -226,11 +226,89 @@ def remove_residual_outliers(ground_points: np.ndarray, radius: float = 10.0,
     return ground_points_masked
 
 
+def build_mask(ground_points: np.ndarray, Xi: np.ndarray, Yi: np.ndarray,
+               max_interp_dist: float) -> np.ndarray:
+    '''
+    function to build a mask for the interpolated grid based on distance
+    to nearest ground point
+
+    ground_points: input ground point cloud as np array of shape (N, 3)
+    Xi, Yi: interpolation grid coordinates
+    max_interp_dist: maximum distance (in meters) for interpolation
+
+    return: boolean mask of shape (nrows, ncols) where True indicates
+            valid interpolation points within max_interp_dist of ground
+            points
+    '''
+    # Build KDTree on ground points
+    print("\tCreating mask...")
+    tree = cKDTree(ground_points[:, :2])
+    # Stack raster coordinates
+    grid_coords = np.column_stack((Xi.ravel(), Yi.ravel()))
+    # Query nearest ground point distance
+    distances, _ = tree.query(grid_coords, k=1)
+    distance_grid = distances.reshape(Zi.shape)
+    mask = distance_grid <= max_interp_dist
+    print("\tMask created. Valid interpolation points:", np.sum(mask))
+    return mask
+
+def interpolate_points(ground_points: np.ndarray, cell_size: float,
+                       buffer_pixels: int) -> tuple:
+    '''
+    function to interpolate the ground points to create a raster DTM
+
+    ground_points: input ground point cloud as numpy array of shape (N, 3)
+    cell_size: resolution of the output raster (in meters)
+    nodata: nodata value to use in the output raster
+    crs: coordinate reference system for the output raster
+    buffer_pixels: number of pixels to add as buffer around the data
+
+    return: tuple containing the interpolated raster array and metadata
+    '''
+    # get x, y, z coordinates of ground points
+    x = ground_points[:, 0]
+    y = ground_points[:, 1]
+    z = ground_points[:, 2]
+    # compute raster bounds
+    print("\tComputing raster bounds and size...")
+    xmin, xmax = x.min(), x.max()
+    ymin, ymax = y.min(), y.max()
+    ncols = int((xmax - xmin) / cell_size) + 1
+    nrows = int((ymax - ymin) / cell_size) + 1
+    print("\tRaster size:", nrows, "rows x", ncols, "cols")
+    # create interpolation grid
+    print("\tCreating interpolation grid...")
+    xi = np.linspace(xmin, xmax, ncols)
+    yi = np.linspace(ymax, ymin, nrows)  # top-to-bottom
+    Xi, Yi = np.meshgrid(xi, yi)
+    print("\tInterpolation grid created with shape:", Xi.shape)
+    # build TIN and interpolate
+    print("\tBuilding Delaunay triangulation...")
+    tri = Delaunay(ground_points[:, :2])
+    print("\tInterpolating terrain...")
+    interp = LinearNDInterpolator(tri, z)
+    Zi = interp(Xi, Yi)
+    print("\tInterpolation completed")
+    # build mask for interpolated grid based on distance to nearest
+    # ground point
+    max_interp_dist = buffer_pixels * cell_size
+    mask = build_mask(ground_points, Xi, Yi, max_interp_dist)
+    print("\tApplying mask to interpolated grid...")
+    Zi_masked = Zi.copy()
+    Zi_masked[~mask] = np.nan
+    print("\tMask applied. Valid DTM points:", np.sum(~np.isnan(Zi_masked)))
+    return Zi_masked, xmin, ymax
+
+
+
 # STEP 0: load the VisualSFM output and translate it without doing thersholding
 
 #  WRITE IT FROM THE PROCESS_CLOUD_POINT.PY FILE
 
+# ----------------------------------------------------------------------
 # STEP 1: Point cloud outlier removal
+# ----------------------------------------------------------------------
+
 print("Removing outliers from point cloud...")
 pcd_clean = remove_outliers(pcd, nb_neighbors=20, std_ratio=2.0, nb_points=8,
                             radius=100)
@@ -239,7 +317,9 @@ print("Outlier removal completed")
 o3d.io.write_point_cloud(out_cleaned_ply_path, pcd_clean)
 print("Cleaned point cloud saved to:", out_cleaned_ply_path)
 
+# ----------------------------------------------------------------------
 # STEP 2: Ground Classification
+# ----------------------------------------------------------------------
 
 # reload the cleaned point cloud
 points = read_ply_with_plyfile(out_cleaned_ply_path)
@@ -268,8 +348,9 @@ nonground_element = create_ply_from_points(points[nonground_idx])
 PlyData([nonground_element], text=False).write(out_cleaned_nonground_ply_path)
 print("Non-ground points written: " + out_cleaned_nonground_ply_path)
 
-
+# ----------------------------------------------------------------------
 # STEP 3: Ground‑Only Surface Refinement
+# ----------------------------------------------------------------------
 
 # reload the ground-only point cloud
 ground_points = read_ply_with_plyfile(out_cleaned_ground_ply_path)
@@ -288,68 +369,34 @@ refined_ground_element = create_ply_from_points(ground_points_refined)
 PlyData([refined_ground_element], text=False).write(out_cleaned_only_ground_ply_path)
 print("Refined ground point cloud saved to: " + out_cleaned_only_ground_ply_path)
 
-
+# ----------------------------------------------------------------------
 # STEP 4: Rasterization and DTM Generation
+# ----------------------------------------------------------------------
 
 # reload the ground-only point cloud
 ground_points = read_ply_with_plyfile(out_cleaned_ground_ply_path)
 print("Ground-only point count:", ground_points.shape[0])
 
-
-x = ground_points[:, 0]
-y = ground_points[:, 1]
-z = ground_points[:, 2]
-
-cell_size = 1  # meters
-
-# compute raster bounds
-xmin, xmax = x.min(), x.max()
-ymin, ymax = y.min(), y.max()
-
-ncols = int((xmax - xmin) / cell_size) + 1
-nrows = int((ymax - ymin) / cell_size) + 1
-
-print("Raster size:", nrows, "rows x", ncols, "cols")
-
-# create interpolation grid
-xi = np.linspace(xmin, xmax, ncols)
-yi = np.linspace(ymax, ymin, nrows)  # top-to-bottom
-Xi, Yi = np.meshgrid(xi, yi)
-
-# build TIN and interpolate
-
-print("Building Delaunay triangulation...")
-tri = Delaunay(ground_points[:, :2])
-
-print("Interpolating terrain...")
-interp = LinearNDInterpolator(tri, z)
-Zi = interp(Xi, Yi)
-
+# define rasterization parameters
+# resolution of the raster
+cell_size = 1
+# nodata value
 nodata = -9999
+# data type
+data_type = 'float32'
+# crs
+crs = 'EPSG:27700'
+# number of pixels beyond data
+buffer_pixels = 50
 
-Zi_filled = np.where(np.isnan(Zi), nodata, Zi)
+# interpolate the ground points to create a raster DTM
+Zi_masked, xmin, ymax = interpolate_points(ground_points_refined, cell_size, buffer_pixels)
+# fill masked areas with nodata value
+Zi_filled = np.where(np.isnan(Zi_masked), nodata, Zi_masked)
+# write the DTM to GeoTIFF
+print("\tWriting DTM to GeoTIFF...")
+cpf.write_geotiff(Zi_filled, out_tif, xmin, ymax, cell_size, data_type,
+              crs, nodata)
 
-transform = from_origin(
-    xmin,
-    ymax,
-    cell_size,
-    cell_size
-)
-
-with rasterio.open(
-    out_tif,
-    "w",
-    driver="GTiff",
-    height=Zi_filled.shape[0],
-    width=Zi_filled.shape[1],
-    count=1,
-    dtype="float32",
-    crs=None,        # set explicitly if known (EPSG:xxxx)
-    transform=transform,
-    nodata=nodata
-) as dst:
-    dst.write(Zi_filled.astype("float32"), 1)
-
-print("DTM written:", out_tif)
 
 

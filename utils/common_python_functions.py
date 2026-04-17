@@ -8,16 +8,21 @@
 from osgeo import gdal
 from math import floor
 from typing import Optional, Tuple
+import numpy as np
+import rasterio
+from rasterio.transform import from_origin
 
 
 def get_raster_metadata(raster_path: str) -> dict:
     '''
-    function to get raster metadata including geotransform and CRS from a raster file using GDAL.
+    get raster metadata including geotransform and CRS from a raster
+    file using GDAL.
 
     Parameters
     ----------
     raster_path : str
         Path to the raster file.
+
     Returns
     -------
     dict
@@ -26,7 +31,8 @@ def get_raster_metadata(raster_path: str) -> dict:
         - height: raster height in pixels
         - geotransform: GDAL geotransform tuple (x0, a, b, y0, d, e)
         - raster_crs_wkt: CRS in WKT format
-        - raster_crs: Optional CRS as string (e.g., "EPSG:27700") if available
+        - raster_crs: Optional CRS as string (e.g., "EPSG:27700") if
+        available
     '''
     # Open the raster dataset
     ds = gdal.Open(raster_path, gdal.GA_ReadOnly)
@@ -67,7 +73,8 @@ def latlon_to_rowcol(
     Parameters
     ----------
     lat, lon : float
-        Input coordinates (usually in EPSG:4326 unless input_crs is set differently).
+        Input coordinates (usually in EPSG:4326 unless input_crs is set
+        differently).
     geotransform : tuple[6]
         GDAL geotransform: (x0, a, b, y0, d, e)
         Xgeo = x0 + a*col + b*row
@@ -75,12 +82,13 @@ def latlon_to_rowcol(
     width, height : int
         Raster dimensions in pixels.
     raster_crs : str | None
-        CRS of raster (e.g., "EPSG:27700"). If provided and different from input_crs,
-        coordinates are transformed with pyproj.
+        CRS of raster (e.g., "EPSG:27700"). If provided and different
+        from input_crs, coordinates are transformed with pyproj.
     input_crs : str
         CRS of input coordinates.
     return_float : bool
-        If True, return fractional (row, col). Else return integer pixel index.
+        If True, return fractional (row, col). Else return integer pixel
+        index.
 
     Returns
     -------
@@ -128,3 +136,46 @@ def latlon_to_rowcol(
     # If within bounds, return the row and column as integers
     return row, col
 
+def write_geotiff(data: np.ndarray, out_path: str, xmin: float, ymax: float,
+                  res: float, data_type: str, crs: str, nodata: float) -> None:
+    '''
+    convert 2D array to a GeoTIFF file
+
+    Parameters
+    ----------
+    data: np.ndarray
+        2D array to write
+    out_path: str
+        output path for the GeoTIFF file
+    xmin, ymax: float
+        coordinates of the upper-left corner of the raster
+    res: float
+        cell size (resolution) of the raster
+    transform: rasterio.transform.Affine
+        affine transform for georeferencing the raster
+    data_type: str
+        data type for the output raster
+    crs: str
+        coordinate reference system for the output raster
+    nodata: float
+        nodata value to set in the output raster
+
+    Returns
+    -------
+    None
+    '''
+    transform = from_origin(xmin, ymax, res, res)
+    with rasterio.open(
+        out_path,
+        "w",
+        driver="GTiff",
+        height=data.shape[0],
+        width=data.shape[1],
+        count=1,
+        dtype=data_type,
+        crs=crs,
+        transform=transform,
+        nodata=nodata
+    ) as dst:
+        dst.write(data.astype(data_type), 1)
+    print("Raster written:", out_path)

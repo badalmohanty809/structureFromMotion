@@ -7,24 +7,20 @@ import os
 import numpy as np
 import cv2
 from skimage import exposure
+from PIL import Image
 import matplotlib.pyplot as plt
 
+
 # set the OpenCV log level to error to suppress warnings
-os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
+cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
+# os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
 
-# path for the text file which contains the list of input image paths
-# input_image_txt = ('C:\\Users\\c25045127\\OneDrive - Cardiff University\\'
-#                    'data_analysis\\image_list.txt')
+sub_dir = "1951_5129"
+in_prt_dir = r"D:\datasets\image_preprocessing\remove_border\penarth_head_to_cold_knap"
+out_prt_dir = r"D:\datasets\image_preprocessing\histogram_equalisation\penarth_head_to_cold_knap"
 
-input_image_dir = ('D:\\datasets\\image_preprocessing\\remove_border\\'
-                   'penarth_head_to_cold_knap\\1951_5129\\')
-
-# define the out path
-# out_dir = ('D:\\datasets\\image_preprocessing\\penarth_head_to_cold_knap\\'
-#            '1951_5129\\71-79\\')
-
-out_dir = ('D:\\datasets\\image_preprocessing\\histogram_equalisation\\'
-           'penarth_head_to_cold_knap\\1951_5129\\')
+input_image_dir = os.path.join(in_prt_dir, sub_dir)
+out_dir = os.path.join(out_prt_dir, sub_dir)
 
 if not os.path.exists(out_dir):
     print(f"Output directory {out_dir} does not exist. Creating it.")
@@ -34,7 +30,7 @@ if not os.path.exists(out_dir):
 # read the input image paths from the text file and make a list
 # input_image_list = open(input_image_txt, 'r').read().splitlines()
 input_image_list = os.listdir(input_image_dir)
-input_image_list = [os.path.join(input_image_dir, img) for img in input_image_list if'.tif' in img]
+input_image_list = [os.path.join(input_image_dir, img) for img in input_image_list if 'br.' in img]
 
 print(f'total {len(input_image_list)} files found in the folder')
 
@@ -146,6 +142,23 @@ def clahe_equalize_image(img: np.ndarray, clipLimit=2.0,
 #
     return img_rescale
 
+def save_image_with_dpi(input_path: str, image: np.ndarray, out_path: str, type: str):
+    '''
+    Save image preserving DPI from input image
+    '''
+    # read original DPI
+    with Image.open(input_path) as img_in:
+        dpi = img_in.info.get('dpi', (300, 300))  # fallback if missing
+    # convert OpenCV (BGR) to PIL (RGB)
+    if len(image.shape) == 3:
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    else:
+        image_rgb = image
+    pil_img = Image.fromarray(image_rgb)
+    # save with original DPI
+    pil_img.save(out_path, dpi=dpi)
+    print(f"\t{type} Image saved with preserved DPI at: {out_path}")
+
 
 for image_path in input_image_list:
     print(f"Processing image: {image_path}")
@@ -167,31 +180,16 @@ for image_path in input_image_list:
     # grey scale images only
     #
     # check the original image
-    generate_histogram(image, out_dir + image_name + '_original_histogram.png', type='original')
-    # save_image(image, out_dir + image_name + '_original_image.tif', type='original')
+    generate_histogram(image, os.path.join(out_dir, image_name + '_original_histogram.png'), type='original')
+    # save_image(image, os.path.join(out_dir, image_name + '_original_image.tif'), type='original')
     #
     # option 3: apply CLAHE as per HSFM paper
     # only if image has no border
-    # clahe_hsfm_image = clahe_hsfm(image)
     clahe_hsfm_image = clahe_equalize_image(image)
     # save the clahe hsfm enhanced image
-    generate_histogram(clahe_hsfm_image, out_dir + image_name + '_clahe_hsfm_histogram.png', type='clahe_hsfm')
-    save_image(clahe_hsfm_image, out_dir + image_name + '_clahe_hsfm_image.tif', type='clahe_hsfm')
+    generate_histogram(clahe_hsfm_image, os.path.join(out_dir, image_name + '_clahe_histogram.png'), type='clahe_hsfm')
+    # save_image(clahe_hsfm_image, os.path.join(out_dir, image_name + '_clahe.tif'), type='clahe_hsfm')
+    save_image_with_dpi(image_path, clahe_hsfm_image, os.path.join(out_dir, image_name + '_clahe.tif'), type='clahe_hsfm')
+    print(f"\tCLAHE enhanced image saved at: {os.path.join(out_dir, image_name + '_clahe.tif')}")
 
-
-
-# # option 1: apply histogram equalization to enhance the image contrast
-# enhanced_image = cv2.equalizeHist(image)
-# # save the enhanced image
-# generate_histogram(enhanced_image, out_dir + image_name + '_enhanced_histogram.png',
-#                    type='enhanced')
-# save_image(enhanced_image, out_dir + image_name + '_enhanced_image.tif', type='enhanced')
-
-
-# # option 2: apply CLAHE with default parameters
-# clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-# clahe_image = clahe.apply(image)
-# # save the clahe enhanced image
-# generate_histogram(clahe_image, out_dir + image_name + '_clahe_histogram.png', type='clahe')
-# save_image(clahe_image, out_dir + image_name + '_clahe_image.tif', type='clahe')
 

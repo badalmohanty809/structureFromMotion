@@ -30,7 +30,7 @@ def tiff_to_png(tiff_path, png_path, max_size=(1500, 1500)):
 
 
 def extract_json_block(json_text):
-    match = re.search(r"\{.*\}", json_text, re.DOTALL)
+    match = re.search(r"/{.*/}", json_text, re.DOTALL)
     if match:
         return json.loads(match.group())
     return None
@@ -60,12 +60,8 @@ def save_result(image_path, image_dpi, raw_text, interpreted_json, json_path):
     print(f"Saved: {json_path}")
 
 
-image_png = tiff_to_png(image_path, png_path)
-image = Image.open(image_png)
-
 # Read key from environment
 api_key = os.getenv("GOOGLE_API_KEY")
-
 # Configure Gemini
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel("gemini-3.5-flash")

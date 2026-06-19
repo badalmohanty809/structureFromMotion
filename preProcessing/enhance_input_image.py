@@ -11,7 +11,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 # set the OpenCV log level to error to suppress warnings
-cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
+# cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
 
 
 def generate_histogram(image: np.ndarray, out_path: str, type: str) -> None:
@@ -160,7 +160,8 @@ elif len(image.shape) == 4:  # Multichannel image (e.g., RGBA)
     image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
 
 # check the original image
-org_hist_file_path = hist_eq_file_path.replace('.tif', '_original_histogram.png')
+# org_hist_file_path = hist_eq_file_path.replace('.tif', '_original_histogram.png').replace('.tiff', '_original_histogram.png')
+org_hist_file_path = hist_eq_file_path.split('.tif')[0] + '_original_histogram.png'
 generate_histogram(image, org_hist_file_path, type='original')
 
 # option 3: apply CLAHE as per HSFM paper
@@ -168,7 +169,8 @@ generate_histogram(image, org_hist_file_path, type='original')
 clahe_hsfm_image = clahe_equalize_image(image)
 
 # save the clahe hsfm enhanced image
-clahe_hsfm_hist_file_path = hist_eq_file_path.replace('.tif', '_clahe_histogram.png')
+# clahe_hsfm_hist_file_path = hist_eq_file_path.replace('.tif', '_clahe_histogram.png').replace('.tiff', '_clahe_histogram.png')
+clahe_hsfm_hist_file_path = hist_eq_file_path.split('.tif')[0] + '_clahe_histogram.png'
 generate_histogram(clahe_hsfm_image, clahe_hsfm_hist_file_path, type='clahe_hsfm')
 
 save_image_with_dpi(br_file_path, clahe_hsfm_image, hist_eq_file_path, type='clahe_hsfm')

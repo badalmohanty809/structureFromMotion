@@ -11,9 +11,9 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 
 # define the input his image paths
-his_img_path = "D:\\datasets\\wales_gov\\penarth_head_to_cold_knap\\"
+his_img_path = "D:\\datasets\\wales_gov\\penarth_head_to_cold_knap\\12_08_2026\\"
 # define output ppt path
-output_ppt_path = ("D:\\datasets\\wales_gov\\penarth_head_to_cold_knap.pptx")
+output_ppt_path = ("D:\\datasets\\wales_gov\\penarth_head_to_cold_knap_12_08_2026.pptx")
 
 def make_image(in_img_path: str, out_img_path: str, scale_factor = 0.25
                , dpi =72) -> None:

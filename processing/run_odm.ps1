@@ -2,7 +2,8 @@
 $Project = "1944_4001"
 
 # define the log file path with timestamp
-$LogFile = "D:/OpenDroneMap/$Project/${Project}_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$TimeStamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+$LogFile = "D:/OpenDroneMap/$Project/${Project}_log_$TimeStamp.log"
 
 
 #  define the variables
@@ -66,3 +67,57 @@ $Duration = $End - $Start
 "Processing time: $($Duration.ToString())" | Tee-Object -FilePath $LogFile -Append
 
 Write-Host "Log saved to: $LogFile"
+
+
+#  -------------- write QA file for the project
+
+$qa_file_path = "D:/OpenDroneMap/$Project/${Project}_QA_$TimeStamp.txt"
+
+if (Test-Path $qa_file_path) {
+    Write-Host "File exists"
+    "The stats of the runs are:" | Out-File $qa_file_path
+}
+
+$stats_json_path = "D:/OpenDroneMap/$Project/dataset/project/opensfm/stats/stats.json"
+$gcp_json_path = "D:/OpenDroneMap/$Project/dataset/project/opensfm/stats/ground_control_points.json"
+
+if (-Not (Test-Path $stats_json_path))
+{
+    Write-Host "Stats JSON file not found: $stats_json_path"
+    "stats file not found at: $stats_json_path" | Out-File -Append $qa_file_path
+}else{
+    Write-Host "Stats JSON file found: $stats_json_path"
+    "stats file path: $stats_json_path" | Out-File -Append $qa_file_path
+    $stats_json = Get-Content $stats_json_path -Raw | ConvertFrom-Json
+    $reproj_err_px = $stats_json.reconstruction_statistics.reprojection_error_pixels
+    $in_shot_count = $stats_json.reconstruction_statistics.initial_shots_count
+    $re_shot_count = $stats_json.reconstruction_statistics.reconstructed_shots_count
+    $gcp_err_avg = $stats_json.gcp_errors.average_error
+    $gcp_err_x = $stats_json.gcp_errors.error.x
+    $gcp_err_y = $stats_json.gcp_errors.error.y
+    $gcp_err_z = $stats_json.gcp_errors.error.z
+    $gcp_error_ce90 = $stats_json.gcp_errors.ce90
+    $gcp_error_le90 = $stats_json.gcp_errors.le90
+    "total image present: $in_shot_count" | Out-File -Append $qa_file_path
+    "total image reconstructed: $re_shot_count" | Out-File -Append $qa_file_path
+    "reprojection error (px): $reproj_err_px" | Out-File -Append $qa_file_path
+    "average GCP error (m): $gcp_err_avg" | Out-File -Append $qa_file_path
+    "GCP error X (m): $gcp_err_x" | Out-File -Append $qa_file_path
+    "GCP error Y (m): $gcp_err_y" | Out-File -Append $qa_file_path
+    "GCP error Z (m): $gcp_err_z" | Out-File -Append $qa_file_path
+    "GCP error CE90 (m): $gcp_error_ce90" | Out-File -Append $qa_file_path
+    "GCP error LE90 (m): $gcp_error_le90" | Out-File -Append $qa_file_path
+}
+
+if (-Not (Test-Path $gcp_json_path))
+{
+    Write-Host "GCP JSON file not found: $gcp_json_path"
+    "GCP file not found at: $gcp_json_path" | Out-File -Append $qa_file_path
+}else{
+    Write-Host "GCP JSON file found: $gcp_json_path"
+    "GCP file path: $gcp_json_path" | Out-File -Append $qa_file_path
+    $gcp_json = Get-Content $gcp_json_path -Raw | ConvertFrom-Json
+    "Individual GCP errors (m):" | Out-File -Append $qa_file_path
+    "GCP ID, GCP Error X (m), GCP Error Y (m), GCP Error Z (m)" | Out-File -Append $qa_file_path
+    $gcp_json | ForEach-Object {"$($_.id),$($_.error[0]),$($_.error[1]),$($_.error[2])"} | Add-Content $qa_file_path
+}

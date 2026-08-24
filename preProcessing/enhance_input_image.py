@@ -3,44 +3,16 @@
 # topic: historic aerial image processing
 # description: script to enhance the input image by
 
-import os
+import os, sys
 import numpy as np
 import cv2
 from skimage import exposure
+from PIL import Image
 import matplotlib.pyplot as plt
 
 # set the OpenCV log level to error to suppress warnings
-os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
+# cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
 
-# path for the text file which contains the list of input image paths
-# input_image_txt = ('C:\\Users\\c25045127\\OneDrive - Cardiff University\\'
-#                    'data_analysis\\image_list.txt')
-
-input_image_dir = ('D:\\datasets\\image_preprocessing\\remove_border\\'
-                   'penarth_head_to_cold_knap\\1951_5129\\')
-
-# define the out path
-# out_dir = ('D:\\datasets\\image_preprocessing\\penarth_head_to_cold_knap\\'
-#            '1951_5129\\71-79\\')
-
-out_dir = ('D:\\datasets\\image_preprocessing\\histogram_equalisation\\'
-           'penarth_head_to_cold_knap\\1951_5129\\')
-
-if not os.path.exists(out_dir):
-    print(f"Output directory {out_dir} does not exist. Creating it.")
-    os.makedirs(out_dir)
-
-
-# read the input image paths from the text file and make a list
-# input_image_list = open(input_image_txt, 'r').read().splitlines()
-input_image_list = os.listdir(input_image_dir)
-input_image_list = [os.path.join(input_image_dir, img) for img in input_image_list if'.tif' in img]
-
-print(f'total {len(input_image_list)} files found in the folder')
-
-# exit if there is no file in the folder
-if len(input_image_list) == 0:
-    exit()
 
 def generate_histogram(image: np.ndarray, out_path: str, type: str) -> None:
     '''
@@ -146,52 +118,60 @@ def clahe_equalize_image(img: np.ndarray, clipLimit=2.0,
 #
     return img_rescale
 
-
-for image_path in input_image_list:
-    print(f"Processing image: {image_path}")
-    image_name = image_path.split('\\')[-1].split('.')[0]
-    # read the image using OpenCV
-    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    # check if the image is read properly
-    assert image is not None, "file could not be read"
-    # check if the image is grayscale or color
-    if len(image.shape) == 2:  # Grayscale image
-        print("The image is grayscale.")
-    elif len(image.shape) == 3:  # Color image
-        print("The image is color.")
-    elif len(image.shape) == 4:  # Multichannel image (e.g., RGBA)
-        print("The image is multichannel (e.g., RGBA).")
-        image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
-    # if the image is not greyscale the the codes to enhance the
-    # image will have to chnage as the below functions work with
-    # grey scale images only
-    #
-    # check the original image
-    generate_histogram(image, out_dir + image_name + '_original_histogram.png', type='original')
-    # save_image(image, out_dir + image_name + '_original_image.tif', type='original')
-    #
-    # option 3: apply CLAHE as per HSFM paper
-    # only if image has no border
-    # clahe_hsfm_image = clahe_hsfm(image)
-    clahe_hsfm_image = clahe_equalize_image(image)
-    # save the clahe hsfm enhanced image
-    generate_histogram(clahe_hsfm_image, out_dir + image_name + '_clahe_hsfm_histogram.png', type='clahe_hsfm')
-    save_image(clahe_hsfm_image, out_dir + image_name + '_clahe_hsfm_image.tif', type='clahe_hsfm')
+def save_image_with_dpi(input_path: str, image: np.ndarray, out_path: str, type: str):
+    '''
+    Save image preserving DPI from input image
+    '''
+    # read original DPI
+    with Image.open(input_path) as img_in:
+        dpi = img_in.info.get('dpi', (300, 300))  # fallback if missing
+    # convert OpenCV (BGR) to PIL (RGB)
+    if len(image.shape) == 3:
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    else:
+        image_rgb = image
+    pil_img = Image.fromarray(image_rgb)
+    # save with original DPI
+    pil_img.save(out_path, dpi=dpi)
+    print(f"\t{type} Image saved with preserved DPI at: {out_path}")
 
 
+br_file_path = sys.argv[1]
+hist_eq_file_path=sys.argv[2]
 
-# # option 1: apply histogram equalization to enhance the image contrast
-# enhanced_image = cv2.equalizeHist(image)
-# # save the enhanced image
-# generate_histogram(enhanced_image, out_dir + image_name + '_enhanced_histogram.png',
-#                    type='enhanced')
-# save_image(enhanced_image, out_dir + image_name + '_enhanced_image.tif', type='enhanced')
+print(f"Processing image: {br_file_path}")
 
+# read the image using OpenCV
+image = cv2.imread(br_file_path, cv2.IMREAD_UNCHANGED)
 
-# # option 2: apply CLAHE with default parameters
-# clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-# clahe_image = clahe.apply(image)
-# # save the clahe enhanced image
-# generate_histogram(clahe_image, out_dir + image_name + '_clahe_histogram.png', type='clahe')
-# save_image(clahe_image, out_dir + image_name + '_clahe_image.tif', type='clahe')
+# check if the image is read properly
+assert image is not None, "file could not be read"
 
+# check if the image is grayscale or color
+# if the image is not greyscale the the codes to enhance the
+# image will have to change as the below functions work with
+# grey scale images only
+if len(image.shape) == 2:  # Grayscale image
+    print("The image is grayscale.")
+elif len(image.shape) == 3:  # Color image
+    print("The image is color.")
+elif len(image.shape) == 4:  # Multichannel image (e.g., RGBA)
+    print("The image is multichannel (e.g., RGBA).")
+    image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+
+# check the original image
+# org_hist_file_path = hist_eq_file_path.replace('.tif', '_original_histogram.png').replace('.tiff', '_original_histogram.png')
+org_hist_file_path = hist_eq_file_path.split('.tif')[0] + '_original_histogram.png'
+generate_histogram(image, org_hist_file_path, type='original')
+
+# option 3: apply CLAHE as per HSFM paper
+# only if image has no border
+clahe_hsfm_image = clahe_equalize_image(image)
+
+# save the clahe hsfm enhanced image
+# clahe_hsfm_hist_file_path = hist_eq_file_path.replace('.tif', '_clahe_histogram.png').replace('.tiff', '_clahe_histogram.png')
+clahe_hsfm_hist_file_path = hist_eq_file_path.split('.tif')[0] + '_clahe_histogram.png'
+generate_histogram(clahe_hsfm_image, clahe_hsfm_hist_file_path, type='clahe_hsfm')
+
+save_image_with_dpi(br_file_path, clahe_hsfm_image, hist_eq_file_path, type='clahe_hsfm')
+print(f"\tCLAHE enhanced image saved at: {hist_eq_file_path}")

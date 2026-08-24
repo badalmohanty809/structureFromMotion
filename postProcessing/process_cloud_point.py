@@ -13,12 +13,11 @@ import geopandas as gpd
 from shapely.geometry import Point
 
 
-x_constant = 312092.436
-y_constant = 166719.0029
+x_constant = 312078.6603
+y_constant = 166589.3197
 z_constant = 0.0
 Z_threshold = 0.0
 epsg_code = 27700 # British National Grid
-
 
 
 def create_shapefile_from_ply(vertex_data: np.ndarray, out_shapefile_path: str,
@@ -68,11 +67,11 @@ def resave_ply(vertex_data: np.ndarray, out_ply_path: str) -> None:
     print(f"Modified ply file saved at: {out_ply_path}")
 
 #  input ply file path
-in_ply_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_4.0.ply"
-out_ply_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_4.0_modified.ply"
-out_shapefile_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_4.0.shp"
-out_subset_ply_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_4.0_subset.ply"
-out_subset_shapefile_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_4.0_subset.shp"
+in_ply_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_11.0.ply"
+out_ply_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_11.0_modified.ply"
+out_shapefile_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_9.0.shp"
+out_subset_ply_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_9.0_subset.ply"
+out_subset_shapefile_path = "D:\\datasets\\sfm_outputs\\gcps\\1944_4001\\1944_4001_vsfm_try_9.0_subset.shp"
 
 
 # read the ply file

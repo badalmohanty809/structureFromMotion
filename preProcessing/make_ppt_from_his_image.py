@@ -4,16 +4,20 @@
 # description: script to make ppt from historical images in a folder
 
 import os
-
+import numpy as np
 from osgeo import gdal
 import matplotlib.pyplot as plt
 from pptx import Presentation
 from pptx.util import Inches, Pt
 
+from PIL import Image
+
+
+
 # define the input his image paths
 his_img_path = "D:\\datasets\\wales_gov\\penarth_head_to_cold_knap\\12_08_2026\\"
 # define output ppt path
-output_ppt_path = ("D:\\datasets\\wales_gov\\penarth_head_to_cold_knap_12_08_2026.pptx")
+output_ppt_path = ("D:\\datasets\\wales_gov\\penarth_head_to_cold_knap_12_08_2026_2.pptx")
 
 def make_image(in_img_path: str, out_img_path: str, scale_factor = 0.25
                , dpi =72) -> None:
@@ -31,17 +35,41 @@ def make_image(in_img_path: str, out_img_path: str, scale_factor = 0.25
                                  '.jpeg')):
         print('Input file is not a valid image file.')
         return
-    # read tiff with gdal
-    dataset = gdal.Open(in_img_path)
-    band = dataset.GetRasterBand(1)
-    array = band.ReadAsArray()
-    # downsample array to low resolution (25% of original size)
-    # scale_factor = 0.25
-    h, w = array.shape
-    # new_h, new_w = int(h * scale_factor), int(w * scale_factor)
-    array_lowres = array[::int(1/scale_factor), ::int(1/scale_factor)]
-    # save the image with low resolution
-    plt.imsave(out_img_path, array_lowres, cmap='gray', dpi=dpi)
+    # with Image.open(in_img_path) as img:
+    #     print("mode:", img.mode)
+    #     print("size:", img.size)
+    #     new_size = (int(img.width * scale_factor), int(img.height * scale_factor))
+    #     print("new size:", new_size)
+    #     resized = img.resize(new_size)
+    #     resized.save(
+    #     out_img_path,
+    #     compression="tiff_lzw" # optional
+    #     )
+    # # read tiff with gdal
+    # dataset = gdal.Open(in_img_path)
+    # # band = dataset.GetRasterBand(1)
+    # array = dataset.ReadAsArray()
+    # array = np.transpose(array, (1, 2, 0))
+    # # downsample array to low resolution (25% of original size)
+    # # scale_factor = 0.25
+    # h, w = array.shape
+    # # new_h, new_w = int(h * scale_factor), int(w * scale_factor)
+    # array_lowres = array[::int(1/scale_factor), ::int(1/scale_factor)]
+    # # save the image with low resolution
+    # # plt.imsave(out_img_path, array_lowres, cmap='gray', dpi=dpi)
+    # plt.imsave(out_img_path, array_lowres, dpi=dpi)
+    ds = gdal.Open(in_img_path)
+    array = ds.ReadAsArray()
+    if array.ndim == 3:
+        array = np.moveaxis(array, 0, -1)
+    img = Image.fromarray(array)
+    img_lowres = img.resize(
+        (
+            int(img.width * scale_factor),
+            int(img.height * scale_factor)
+        )
+    )
+    img_lowres.save(out_img_path)
 
 def add_image_to_ppt(p: Presentation, in_img_path: str, out_img_path: str
                      )-> None:

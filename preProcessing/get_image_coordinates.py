@@ -104,6 +104,11 @@ dir = "1951_5129"
 add_padding_prt_dir = r"D:\datasets\image_preprocessing\04_add_padding\penarth_head_to_cold_knap"
 gcp_prt_dir = r"D:\datasets\image_preprocessing\03_gcps\penarth_head_to_cold_knap"
 
+# #  out directories
+# out_prt_dir = r"D:\OpenDroneMap"
+
+# out_image_dir = os.path.join(out_prt_dir, dir, "images")
+
 #  get the list of images in the directory
 image_list = [f for f in os.listdir(os.path.join(add_padding_prt_dir, dir)) if f.endswith(".tif")]
 
